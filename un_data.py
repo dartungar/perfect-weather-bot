@@ -29,26 +29,32 @@ def melt_wmo_data(filepath, filename, cols):
 def pivot_wmo_data(filepath, filename):
     df = pd.read_csv(filepath+filename)
     df['IWMO'] = df['WMO Station Number'] * 10
-    df = df.drop(columns=['Statistic Description', 'Unit', 'dtype', 'Country or Territory', 'Station Name', 'WMO Station Number'])
+    df = df.drop(columns=['Statistic Description', 
+                            'Unit', 
+                            'dtype', 
+                            'Country or Territory', 
+                            'Station Name', 
+                            'WMO Station Number'])
     df['Datatype'] = df['Datatype'].str.replace(' ', '_')
+
     df['Datatype'] = df['Datatype'].str.lower()
+    
     df = df.rename(columns={'IWMO': 'iwmo', 'Month': 'month'})
+
     df_pivoted = pd.pivot_table(df, index=['iwmo', 'month'], columns=['Datatype'], values='Value', fill_value=-9999.0)
-    #df_pivoted.to_csv('./wmo_climate_normals/mod/all_data_concat_melted_mod_pivoted.csv')
-    df_pivoted.to_sql('climate_normals', con=engine)
+    df_pivoted = df_pivoted.filter(['iwmo', 'month', 'Datatype', 'Value',
+                    'mean_temp_mean_value', 
+                    'mean_max_temp_mean_value', 
+                    'mean_min_temp_mean_value', 
+                    'humidity_mean_value', 
+                    'precipitation_data_mean_monthly_value', 
+                    'sunshine_mean_number_of_hours'])
+    df = df.rename(columns={'precipitation_data_mean_monthly_value': 'precipitation_mean_monthly_value'})
+    df_pivoted.to_csv('./data/all_data_concat_melted_mod_pivoted.csv')
+    #df_pivoted.to_sql('climate_normals', con=engine, if_exists='replace')
 
 
 #melt_wmo_data('sunshine.csv')
-
-cols = ['dtype', 
-        'WMO Station Number', 
-        'Country or Territory', 
-        'Station Name',  
-        'Statistic Description', 
-        'Unit', 
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 
-        'Annual', 'Annual NCDC Computed Value']
 
 # for filename in os.listdir('./wmo_climate_normals'):
 #     df = pd.read_csv('./wmo_climate_normals/'+filename)
