@@ -13,7 +13,7 @@ engine = create_engine(os.environ['DATABASE_URL_WEATHER'])
 
 conn = engine.connect()
 
-w_normals = Table('climate_normals', metadata,
+c_normals = Table('climate_normals', metadata,
                     Column('iwmo', String),
                     Column('month', String),
                     Column('humidity_mean_value', Float),
@@ -35,3 +35,14 @@ iwmos = Table('iwmos', metadata,
                 Column('elevation', Float),
                 )
 
+
+places = Table('places', metadata,
+                Column('id', Integer),
+                Column('country_code', String),
+                Column('city', String),
+                Column('accent_city', String),
+                Column('region', String),
+                Column('population', String),
+                Column('latitude', Float),
+                Column('longitude', Float),
+                )

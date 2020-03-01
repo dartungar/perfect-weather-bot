@@ -1,10 +1,12 @@
 import logging
 import os
 import random
+import string
 from telegram import ReplyKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, Filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, Filters, PicklePersistence
 import db
 import helpers
+from helpers import get_nearby_locations_by_iwmo
 from helpers import get_iwmos_by_climate_dict
 from datetime import datetime
 
@@ -46,34 +48,66 @@ def go_to_main_menu(update, context):
     return ConversationHandler.END
 
 
-
-
-
 def get_place(update, context):
-
+    
     try:
         if context.user_data['has_preferences'] == True:
-
-            logger.info('trying to get iwmos by climate...')
+            
             try:
+                logger.info('trying to get iwmos by climate...')
                 iwmos = get_iwmos_by_climate_dict(month=context.user_data['month'], 
-                                                        mean_temp=context.user_data['mean_temp_mean_range'], 
+                                                        mean_max_temp=context.user_data['mean_max_temp_mean_range'], 
                                                         humidity='none', # TODO
                                                         precipitation_monthly=context.user_data['precipitation_monthly_range'], 
                                                         sunshine=context.user_data['sunshine_hours_range'])
             except Exception as e:
                 logger.error(f'could not get iwmos: {e}')
             logger.info(f'got a list of {len(iwmos)} iwmos, trying to get random...')
+            
+            if len(iwmos) == 0:
+                update.message.reply_text('Sorry, could not find a place with your kind of perfect weather!', reply_markup=keyboard)
+                return ConversationHandler.END
+            
             iwmo = random.choice(iwmos)
-            update.message.reply_text(f'{iwmo[10].strip()}, {iwmo[11].strip()}', reply_markup=keyboard)
+
+            logger.info('got random iwmo; trying to get nearby locations...')
+            try:
+                locations = get_nearby_locations_by_iwmo(iwmo, 30)
+            except Exception as e:
+                logger.info(f'could not get nearby locations by iwmo: {e}')
+            
+            logger.info(f'found {len(locations)} locations!')
+            chosen_location = random.choice(locations)
+
+            location_name = chosen_location[3]
+            location_country = chosen_location[1]
+            location_lat = chosen_location[6]
+            location_long = chosen_location[7]
+
+
+            logger.info('building reply text...')
+            daytemp = iwmo[3]
+            precip = iwmo[6]
+            sunshine = iwmo[7]
+            nd = 'n/a '
+            try:
+                reply_text = f'''Check out {string.capwords(location_name.strip())}, {string.capwords(location_country.strip())}.
+Climate in {iwmo[1]}: 
+Daytime temperature: {daytemp if daytemp > -9999 else nd}C
+Average daily precipitation: {round(precip/30, 1) if precip > -9999 else nd}mm
+Average hours of sunshine daily: {round(sunshine/30, 1) if sunshine > -9999 else nd}
+Google Maps: https://www.google.com/maps/place/{location_lat},{location_long}/@{location_lat},{location_long},6z'''
+            except Exception as e:
+                logger.error(f'could not build reply string: {e}')
+
+            update.message.reply_text(reply_text, reply_markup=keyboard)
             return ConversationHandler.END
     
     except Exception as e:
-        logger.error(f'user has no preferences!')
+        logger.error(f'error: {e}')
         reply_text = 'Seems like you have no preferences. Use /preferences to tell me what weather you like.'
         update.message.reply_text(reply_text, reply_markup=keyboard)
         return ConversationHandler.END
-
 
 
 def save_preferences(update, context):
@@ -87,9 +121,12 @@ def save_preferences(update, context):
 def reset_preferences(update, context):
     context.user_data['month'] = datetime.now().strftime('%h')
     context.user_data['mean_temp_mean_range'] = 'none'
+    context.user_data['mean_max_temp_mean_range'] = 'none'
     context.user_data['humidity_mean_range'] = 'none'
     context.user_data['precipitation_monthly_range'] = 'none'
     context.user_data['sunshine_hours_range'] = 'none'
+    reply_text = 'preferences reset!'
+    update.message.reply_text(reply_text, reply_markup=keyboard)
     return ConversationHandler.END
     
 
@@ -105,14 +142,14 @@ def get_month_preferences(update, context):
         context.user_data['month'] = datetime.now().strftime('%h')
     else:
         context.user_data['month'] = value
-    reply_text = 'Now, tell me about your kind of perfect weather. What is temperature like?'
+    reply_text = 'Now, tell me about your kind of perfect weather. What is day temperature like?'
     update.message.reply_text(reply_text, reply_markup=temperature_keyboard)
     return CHOOSING_TEMPERATURE
 
 
 def get_temperature_preferences(update, context):
     value = update.message.text
-    context.user_data['mean_temp_mean_range'] = value if value != 'skip' else 'none'
+    context.user_data['mean_max_temp_mean_range'] = value if value != 'skip' else 'none'
     reply_text = 'Very well. What about precipitation? Does it rain or snow a lot?'
     update.message.reply_text(reply_text, reply_markup=precipitation_keyboard)
     return CHOOSING_PRECIPITATION
@@ -135,8 +172,8 @@ def get_sunshine_preferences(update, context):
 
 
 def main():
-    # pp = PicklePersistence(filename='notionbot')
-    updater = Updater(BOT_TOKEN, use_context=True)
+    pp = PicklePersistence(filename='weather_bot')
+    updater = Updater(BOT_TOKEN, persistence=pp, use_context=True)
 
     dp = updater.dispatcher
 

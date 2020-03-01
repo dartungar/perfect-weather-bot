@@ -21,9 +21,18 @@ def build_db():
     df_iwmos = pd.read_csv('./data/iwmos.csv')
     df_iwmos.to_sql('iwmos', con=engine, if_exists='replace')
 
+
+def build_places_db():
+    for i in range(0, 3300000, 100000):
+        print(f'building places in range {i} to db...')
+        df_places = pd.read_csv(f'./data/places_{i+100000}.csv', index_col='id')
+        df_places.to_sql('places', con=engine, if_exists='append', dtype={'region': String()})
+
+
 if __name__ == '__main__':
 
     build_db()
+    #build_places_db()
 
     w_normals = Table('climate_normals', metadata,
                         Column('iwmo', String),
@@ -45,4 +54,16 @@ if __name__ == '__main__':
                     Column('latitude', Float),
                     Column('longitude', Float),
                     Column('elevation', Float),
+                    )
+
+
+    places = Table('places', metadata,
+                    Column('id', Integer),
+                    Column('country_code', String),
+                    Column('city', String),
+                    Column('accent_city', String),
+                    Column('region', String),
+                    Column('population', String),
+                    Column('latitude', Float),
+                    Column('longitude', Float),
                     )
