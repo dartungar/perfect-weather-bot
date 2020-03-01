@@ -1,6 +1,6 @@
 from db import conn, select, iwmos, c_normals, places
 from sqlalchemy import * 
-
+import pandas as pd
 
 def get_nearby_locations_constraints(lat, lon, distance_km):
     lat_constraint_min = lat - (distance_km / 111.139)
@@ -22,4 +22,7 @@ def get_locations_by_constraints(lat, lon, constraints):
 
     result = conn.execute(sel)
     return result.fetchall()
+
+
+country_codes = pd.read_csv('./data/country_codes.csv')
     

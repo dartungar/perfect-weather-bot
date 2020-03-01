@@ -2,7 +2,6 @@ from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import *
-import pandas as pd
 import os
 
 

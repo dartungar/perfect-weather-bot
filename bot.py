@@ -6,8 +6,8 @@ from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, Filters, PicklePersistence
 import db
 import helpers
-from helpers import get_nearby_locations_by_iwmo
-from helpers import get_iwmos_by_climate_dict
+from helpers import get_nearby_locations_by_iwmo, get_iwmos_by_climate_dict
+from places import country_codes
 from datetime import datetime
 
 
@@ -77,13 +77,18 @@ def get_place(update, context):
                 logger.info(f'could not get nearby locations by iwmo: {e}')
             
             logger.info(f'found {len(locations)} locations!')
-            chosen_location = random.choice(locations)
-
-            location_name = chosen_location[3]
-            location_country = chosen_location[1]
-            location_lat = chosen_location[6]
-            location_long = chosen_location[7]
-
+            
+            if len(locations):
+                chosen_location = random.choice(locations)
+                location_name = chosen_location[3]
+                location_country = country_codes.loc[country_codes.Code==chosen_location[1].upper(), ['Name']].iloc[0, 0]
+                location_lat = chosen_location[6]
+                location_long = chosen_location[7]
+            else:
+                location_name = iwmo[13]
+                location_country = iwmo[14]
+                location_lat = iwmo[12]
+                location_long = iwmo[13]
 
             logger.info('building reply text...')
             daytemp = iwmo[3]
@@ -91,7 +96,7 @@ def get_place(update, context):
             sunshine = iwmo[7]
             nd = 'n/a '
             try:
-                reply_text = f'''Check out {string.capwords(location_name.strip())}, {string.capwords(location_country.strip())}.
+                reply_text = f'''Check out {location_name}, {location_country}.
 Climate in {iwmo[1]}: 
 Daytime temperature: {daytemp if daytemp > -9999 else nd}C
 Average daily precipitation: {round(precip/30, 1) if precip > -9999 else nd}mm
@@ -99,6 +104,7 @@ Average hours of sunshine daily: {round(sunshine/30, 1) if sunshine > -9999 else
 Google Maps: https://www.google.com/maps/place/{location_lat},{location_long}/@{location_lat},{location_long},6z'''
             except Exception as e:
                 logger.error(f'could not build reply string: {e}')
+                reply_text = 'Sorry, something went wrong :('
 
             update.message.reply_text(reply_text, reply_markup=keyboard)
             return ConversationHandler.END
