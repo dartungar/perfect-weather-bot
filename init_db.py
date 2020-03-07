@@ -15,11 +15,13 @@ conn = engine.connect()
 
 
 def build_db():
-    df_climate_normals = pd.read_csv('./data/all_data_concat_melted_mod_pivoted.csv')
-    df_climate_normals.to_sql('climate_normals', con=engine, if_exists='replace')
+    df_climate_normals = pd.read_csv('./data/climate_data_with_pps.csv')
+    df_climate_normals = df_climate_normals[['iwmo', 'month', 'mean_temp_mean_value', 'mean_max_temp_mean_value', 'mean_min_temp_mean_value', 'humidity_mean_value', 'precipitation_data_mean_monthly_value', 'sunshine_mean_number_of_hours', 'percent_possible_sunshine']]
+    df_climate_normals.to_sql('climate_normals', con=engine, if_exists='replace', index_label='id', dtype={'iwmo': String()})
 
-    df_iwmos = pd.read_csv('./data/iwmos.csv')
-    df_iwmos.to_sql('iwmos', con=engine, if_exists='replace')
+    df_iwmos = pd.read_csv('./data/iwmos.csv', index_col='index')
+    df_iwmos = df_iwmos.drop(columns=['id'])
+    df_iwmos.to_sql('iwmos', con=engine, if_exists='replace', index_label='id', dtype={'iwmo_id': String()})
 
 
 def build_places_db():
@@ -32,38 +34,9 @@ def build_places_db():
 if __name__ == '__main__':
 
     build_db()
-    #build_places_db()
+    #build_places_db() # quite lengthy process due to the need to separate long .csv into ~30 shorter .csv due to 1GB RAM server limitations
+    
+    # index on lat and long values to speed up the search
+    add_index_sql = f'''CREATE INDEX coordinates_index ON places(latitude, longitude)'''
 
-    w_normals = Table('climate_normals', metadata,
-                        Column('iwmo', String),
-                        Column('month', String),
-                        Column('humidity_mean_value', Float),
-                        Column('mean_max_temp_mean_value', Float),
-                        Column('mean_min_temp_mean_value', Float),
-                        Column('mean_temp_mean_value', Float),
-                        Column('precipitation_data_mean_monthly_value', Float),
-                        Column('sunshine_mean_number_of_hours', Float),
-                        )
-
-
-    iwmos = Table('iwmos', metadata,
-                    Column('id', Integer),
-                    Column('iwmo_id', String),
-                    Column('name', String),
-                    Column('country', String),
-                    Column('latitude', Float),
-                    Column('longitude', Float),
-                    Column('elevation', Float),
-                    )
-
-
-    places = Table('places', metadata,
-                    Column('id', Integer),
-                    Column('country_code', String),
-                    Column('city', String),
-                    Column('accent_city', String),
-                    Column('region', String),
-                    Column('population', String),
-                    Column('latitude', Float),
-                    Column('longitude', Float),
-                    )
+    conn.execute(add_index_sql)

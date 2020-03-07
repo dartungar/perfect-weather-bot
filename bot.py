@@ -59,7 +59,7 @@ def get_place(update, context):
                                                         mean_max_temp=context.user_data['mean_max_temp_mean_range'], 
                                                         humidity='none', # TODO
                                                         precipitation_monthly=context.user_data['precipitation_monthly_range'], 
-                                                        sunshine=context.user_data['sunshine_hours_range'])
+                                                        percent_sunshine=context.user_data['sunshine_percent_range'])
             except Exception as e:
                 logger.error(f'could not get iwmos: {e}')
             logger.info(f'got a list of {len(iwmos)} iwmos, trying to get random...')
@@ -70,7 +70,7 @@ def get_place(update, context):
             
             iwmo = random.choice(iwmos)
 
-            logger.info('got random iwmo; trying to get nearby locations...')
+            logger.info(f'got random iwmo {iwmo}; trying to get nearby locations...')
             try:
                 locations = get_nearby_locations_by_iwmo(iwmo, 30)
             except Exception as e:
@@ -85,22 +85,28 @@ def get_place(update, context):
                 location_lat = chosen_location[6]
                 location_long = chosen_location[7]
             else:
-                location_name = iwmo[13]
-                location_country = iwmo[14]
-                location_lat = iwmo[12]
-                location_long = iwmo[13]
+                location_name = iwmo[11]
+                location_country = iwmo[12]
+                location_lat = iwmo[13]
+                location_long = iwmo[14]
 
             logger.info('building reply text...')
+            temp = iwmo[2]
             daytemp = iwmo[3]
             precip = iwmo[6]
             sunshine = iwmo[7]
             nd = 'n/a '
+
+            if temp > -9999 and daytemp == -9999:
+                daytemp = f'~{temp + (temp * 0.3)}'
+
             try:
                 reply_text = f'''Check out {location_name}, {location_country}.
 Climate in {iwmo[1]}: 
-Daytime temperature: {daytemp if daytemp > -9999 else nd}C
-Average daily precipitation: {round(precip/30, 1) if precip > -9999 else nd}mm
-Average hours of sunshine daily: {round(sunshine/30, 1) if sunshine > -9999 else nd}
+Avg. temperature: {temp if temp > -9999 else nd}C
+Avg. daytime temperature: {daytemp if daytemp > -9999 else nd}C
+Avg. daily precipitation: {round(precip/30, 1) if precip > -9999 else nd}mm
+Avg. hours of sunshine daily: {round(sunshine/30, 1) if sunshine > -9999 else nd}
 Google Maps: https://www.google.com/maps/place/{location_lat},{location_long}/@{location_lat},{location_long},6z'''
             except Exception as e:
                 logger.error(f'could not build reply string: {e}')
@@ -130,7 +136,7 @@ def reset_preferences(update, context):
     context.user_data['mean_max_temp_mean_range'] = 'none'
     context.user_data['humidity_mean_range'] = 'none'
     context.user_data['precipitation_monthly_range'] = 'none'
-    context.user_data['sunshine_hours_range'] = 'none'
+    context.user_data['sunshine_percent_range'] = 'none'
     reply_text = 'preferences reset!'
     update.message.reply_text(reply_text, reply_markup=keyboard)
     return ConversationHandler.END
@@ -171,7 +177,7 @@ def get_precipitation_preferences(update, context):
 
 def get_sunshine_preferences(update, context):
     value = update.message.text
-    context.user_data['sunshine_hours_range'] = value if value != 'skip' else 'none'
+    context.user_data['sunshine_percent_range'] = value if value != 'skip' else 'none'
     reply_text = 'OK then. Shall I save your preferences?'
     update.message.reply_text(reply_text, reply_markup=save_preferences_keyboard)
     return CHOOSING_IF_SAVE

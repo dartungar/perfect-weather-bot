@@ -13,14 +13,15 @@ engine = create_engine(os.environ['DATABASE_URL_WEATHER'])
 conn = engine.connect()
 
 c_normals = Table('climate_normals', metadata,
-                    Column('iwmo', String),
+                    Column('iwmo', String, ForeignKey('iwmos.iwmo_id')),
                     Column('month', String),
-                    Column('humidity_mean_value', Float),
+                    Column('mean_temp_mean_value', Float),
                     Column('mean_max_temp_mean_value', Float),
                     Column('mean_min_temp_mean_value', Float),
-                    Column('mean_temp_mean_value', Float),
+                    Column('humidity_mean_value', Float),
                     Column('precipitation_data_mean_monthly_value', Float),
                     Column('sunshine_mean_number_of_hours', Float),
+                    Column('percent_possible_sunshine', Float)
                     )
 
 
